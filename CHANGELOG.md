@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes cloud patch creation error on azure repos
 
+### Added
+
+- Adds option to display first name only on inline blame
+
 ## [15.2.1] - 2024-07-24
 
 ### Added
