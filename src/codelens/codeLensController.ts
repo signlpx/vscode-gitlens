@@ -54,6 +54,7 @@ export class GitCodeLensController implements Disposable {
 		if (this._provider == null || !e.blameable) return;
 
 		Logger.log('Blame state changed; resetting CodeLens provider');
+		void this.container.usage.track('codeLens:activated');
 		this._provider.reset();
 	}
 

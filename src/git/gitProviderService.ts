@@ -1054,6 +1054,16 @@ export class GitProviderService implements Disposable {
 
 	private _sendProviderContextTelemetryDebounced: Deferrable<() => void> | undefined;
 
+	private trackRepoHostUsage(hasReposWithHostingIntegrationsConnected: boolean) {
+		const previouslySavedValue = Boolean(this.container.usage.get('integration:repoHost'));
+		if (previouslySavedValue && !hasReposWithHostingIntegrationsConnected) {
+			void this.container.usage.reset('integration:repoHost');
+		}
+		if (!previouslySavedValue && hasReposWithHostingIntegrationsConnected) {
+			void this.container.usage.track('integration:repoHost');
+		}
+	}
+
 	private updateContext() {
 		if (this.container.deactivating) return;
 
@@ -1140,6 +1150,8 @@ export class GitProviderService implements Disposable {
 				}
 				this._sendProviderContextTelemetryDebounced();
 			}
+
+			this.trackRepoHostUsage(Boolean(reposWithHostingIntegrationsConnected.size));
 
 			await Promise.allSettled([
 				setContext('gitlens:repos:withRemotes', reposWithRemotes.size ? [...reposWithRemotes] : undefined),
