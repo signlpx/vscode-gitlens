@@ -6,6 +6,11 @@ import { when } from 'lit/directives/when.js';
 
 @customElement('gl-onboarding-item')
 export class GlOnboardingItem extends LitElement {
+	static override readonly shadowRootOptions: ShadowRootInit = {
+		...LitElement.shadowRootOptions,
+		delegatesFocus: true,
+	};
+
 	private static cssInputVariables = css`
 		:host {
 			--gl-action-button-color: gray;

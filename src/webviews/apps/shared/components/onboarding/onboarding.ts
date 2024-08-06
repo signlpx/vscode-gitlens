@@ -15,20 +15,6 @@ export class GlOnboarding<
 	OnboardingState extends OnboardingStateTemplate,
 	OnboardingItem extends string,
 > extends LitElement {
-	@property({ type: Object })
-	state?: OnboardingState;
-
-	@property({ type: Array })
-	onboardingConfiguration?: OnboardingItemConfiguration<OnboardingItem>[];
-
-	@state()
-	isExpanded: boolean = true;
-
-	override connectedCallback(): void {
-		super.connectedCallback();
-		this.isExpanded = !this.finished;
-	}
-
 	static override readonly styles = css`
 		gl-accordion {
 			--gk-accordion-details-color: currentColor;
@@ -74,6 +60,25 @@ export class GlOnboarding<
 			margin-top: 12px;
 		}
 	`;
+
+	static override readonly shadowRootOptions: ShadowRootInit = {
+		...LitElement.shadowRootOptions,
+		delegatesFocus: true,
+	};
+
+	@property({ type: Object })
+	state?: OnboardingState;
+
+	@property({ type: Array })
+	onboardingConfiguration?: OnboardingItemConfiguration<OnboardingItem>[];
+
+	@state()
+	isExpanded: boolean = true;
+
+	override connectedCallback(): void {
+		super.connectedCallback();
+		this.isExpanded = !this.finished;
+	}
 
 	private get progress() {
 		const onboardingState = this.state;

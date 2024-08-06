@@ -1,4 +1,4 @@
-import { html } from 'lit';
+import { html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { GlElement } from '../element';
@@ -34,6 +34,10 @@ import { accordionBaseStyles } from './accordion.css';
 @customElement('gl-accordion')
 export class Accordion extends GlElement {
 	static override readonly styles = accordionBaseStyles;
+	static override readonly shadowRootOptions: ShadowRootInit = {
+		...LitElement.shadowRootOptions,
+		delegatesFocus: true,
+	};
 
 	@property()
 	override id!: string;
@@ -63,21 +67,7 @@ export class Accordion extends GlElement {
 	}
 
 	get chevronIcon() {
-		return html` <svg
-			aria-hidden="true"
-			focusable="false"
-			class="chevron-down-icon"
-			role="img"
-			xmlns="http://www.w3.org/2000/svg"
-			viewBox="0 0 512 512"
-			width="16"
-			height="16"
-		>
-			<path
-				fill="currentColor"
-				d="M239 401c9.4 9.4 24.6 9.4 33.9 0L465 209c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0l-175 175L81 175c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9L239 401z"
-			></path>
-		</svg>`;
+		return html` <code-icon icon="chevron-down"></code-icon>`;
 	}
 
 	override render() {

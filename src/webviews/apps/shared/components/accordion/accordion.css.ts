@@ -26,7 +26,7 @@ export const accordionBaseStyles = css`
 		height: var(--gk-accordion-button-chevron-size, 16px);
 	}
 
-	.accordion-button:not(.accordion-button--expanded) .chevron-down-icon {
+	.accordion-button:not(.accordion-button--expanded) code-icon {
 		transform: rotate(-90deg);
 	}
 
