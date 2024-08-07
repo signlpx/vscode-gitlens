@@ -5,24 +5,25 @@ import type { Container } from '../../container';
 import type { Subscription } from '../../plus/gk/account/subscription';
 import { isSubscriptionExpired, isSubscriptionPaid, isSubscriptionTrial } from '../../plus/gk/account/subscription';
 import type { SubscriptionChangeEvent } from '../../plus/gk/account/subscriptionService';
+import { HostingIntegrationId } from '../../plus/integrations/providers/models';
 import { registerCommand } from '../../system/command';
 import { getContext, onDidChangeContext } from '../../system/context';
 import type { TrackedUsageKeys, UsageChangeEvent } from '../../telemetry/usageTracker';
 import type { OnboardingItem } from '../apps/home/model/gitlens-onboarding';
 import type { WebviewHost, WebviewProvider } from '../webviewProvider';
 import type {
+	DidChangeOnboardingStateParams,
 	DidChangeRepositoriesParams,
-	DidChangeUsagesParams,
 	OnboardingConfigurationExtras,
 	State,
 } from './protocol';
 import {
 	DidChangeIntegrationsConnections,
 	DidChangeOnboardingConfiguration,
+	DidChangeOnboardingState,
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
-	DidChangeUsage,
 } from './protocol';
 
 const emptyDisposable = Object.freeze({
@@ -50,10 +51,14 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			this.container.integrations.onDidChangeConnectionState(this.onChangeConnectionState, this),
 			this.container.usage.onDidChange(this.onUsagesChanged, this),
 			window.onDidChangeActiveTextEditor(this.onChangeActiveTextEditor, this),
+			this.container.integrations.onDidChangeConnectionState(e => {
+				if (e.key === 'github' || e.key === 'gitlab') this.onChangeConnectionState();
+			}, this),
 		);
 	}
 
 	dispose() {
+		this.notifyDidChangeOnboardingState();
 		this._disposable.dispose();
 	}
 
@@ -63,6 +68,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	private onChangeActiveTextEditor(e: TextEditor | undefined) {
 		this.activeTextEditor = e;
+		this.container.integrations.getConnected('hosting');
 		this.notifyDidChangeOnboardingConfig();
 	}
 
@@ -70,7 +76,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		if (!e || e?.key === 'integration:repoHost') {
 			this.notifyDidChangeOnboardingConfig();
 		}
-		this.notifyDidChangeUsages();
+		this.notifyDidChangeOnboardingState();
 	}
 
 	private onRepositoriesChanged() {
@@ -150,8 +156,14 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		return false;
 	}
 
+	private isHostedIntegrationConnected() {
+		return this.container.integrations
+			.getConnected('hosting')
+			.some(x => x.id === HostingIntegrationId.GitHub || x.id === HostingIntegrationId.GitLab);
+	}
+
 	private getOnboardingState(): Omit<
-		Required<DidChangeUsagesParams>,
+		Required<DidChangeOnboardingStateParams>,
 		`${OnboardingItem.allSidebarViews}Checked` | `${OnboardingItem.editorFeatures}Checked`
 	> {
 		return {
@@ -174,7 +186,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 					'remotesView:shown',
 				),
 
-			repoHostChecked: this.checkIfSomeUsed('integration:repoHost'),
+			repoHostChecked: this.isHostedIntegrationConnected(),
 			revisionHistoryChecked: this.checkIfSomeUsed(
 				'command:gitlens.diffWithPrevious:executed',
 				'command:gitlens.diffWithNext:executed',
@@ -203,7 +215,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	private getOnboardingExtras(): OnboardingConfigurationExtras {
 		return {
 			editorPreviewEnabled: Boolean(this.activeTextEditor),
-			repoHostConnected: this.checkIfSomeUsed('integration:repoHost'),
+			repoHostConnected: this.isHostedIntegrationConnected(),
 		};
 	}
 
@@ -235,8 +247,8 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			hasAnyIntegrationConnected: isConnected,
 		});
 	}
-	private notifyDidChangeUsages() {
-		void this.host.notify(DidChangeUsage, this.getOnboardingState());
+	private notifyDidChangeOnboardingState() {
+		void this.host.notify(DidChangeOnboardingState, this.getOnboardingState());
 	}
 
 	private notifyDidChangeOnboardingConfig() {
