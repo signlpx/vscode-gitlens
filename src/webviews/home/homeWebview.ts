@@ -9,17 +9,12 @@ import { HostingIntegrationId } from '../../plus/integrations/providers/models';
 import { registerCommand } from '../../system/command';
 import { getContext, onDidChangeContext } from '../../system/context';
 import type { TrackedUsageKeys, UsageChangeEvent } from '../../telemetry/usageTracker';
-import type { OnboardingItem } from '../apps/home/model/gitlens-onboarding';
 import type { WebviewHost, WebviewProvider } from '../webviewProvider';
-import type {
-	DidChangeOnboardingStateParams,
-	DidChangeRepositoriesParams,
-	OnboardingConfigurationExtras,
-	State,
-} from './protocol';
+import type { DidChangeOnboardingStateParams, DidChangeRepositoriesParams, OnboardingItem, State } from './protocol';
 import {
 	DidChangeIntegrationsConnections,
-	DidChangeOnboardingConfiguration,
+	DidChangeOnboardingEditor,
+	DidChangeOnboardingIntegration,
 	DidChangeOnboardingState,
 	DidChangeOrgSettings,
 	DidChangeRepositories,
@@ -35,12 +30,14 @@ const emptyDisposable = Object.freeze({
 export class HomeWebviewProvider implements WebviewProvider<State> {
 	private readonly _disposable: Disposable;
 	private activeTextEditor: TextEditor | undefined;
+	private hostedIntegrationConnected: boolean | undefined;
 
 	constructor(
 		private readonly container: Container,
 		private readonly host: WebviewHost,
 	) {
 		this.activeTextEditor = window.activeTextEditor;
+
 		this._disposable = Disposable.from(
 			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
 			!workspace.isTrusted
@@ -52,7 +49,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			this.container.usage.onDidChange(this.onUsagesChanged, this),
 			window.onDidChangeActiveTextEditor(this.onChangeActiveTextEditor, this),
 			this.container.integrations.onDidChangeConnectionState(e => {
-				if (e.key === 'github' || e.key === 'gitlab') this.onChangeConnectionState();
+				if (isSupportedIntegration(e.key)) this.onChangeConnectionState();
 			}, this),
 		);
 	}
@@ -68,13 +65,12 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	private onChangeActiveTextEditor(e: TextEditor | undefined) {
 		this.activeTextEditor = e;
-		this.container.integrations.getConnected('hosting');
-		this.notifyDidChangeOnboardingConfig();
+		this.notifyDidChangeEditor();
 	}
 
 	private onUsagesChanged(e: UsageChangeEvent | undefined) {
 		if (!e || e?.key === 'integration:repoHost') {
-			this.notifyDidChangeOnboardingConfig();
+			this.notifyDidChangeOnboardingIntegration();
 		}
 		this.notifyDidChangeOnboardingState();
 	}
@@ -117,7 +113,8 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			...this.host.baseWebviewState,
 			repositories: this.getRepositoriesState(),
 			onboardingState: this.getOnboardingState(),
-			onboardingExtras: this.getOnboardingExtras(),
+			editorPreviewEnabled: this.isEditorPreviewEnabled(),
+			repoHostConnected: this.isHostedIntegrationConnected(),
 			webroot: this.host.getWebRoot(),
 			promoStates: await this.getCanShowPromos(subscription),
 			subscription: subscription,
@@ -156,10 +153,17 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		return false;
 	}
 
-	private isHostedIntegrationConnected() {
-		return this.container.integrations
-			.getConnected('hosting')
-			.some(x => x.id === HostingIntegrationId.GitHub || x.id === HostingIntegrationId.GitLab);
+	private isEditorPreviewEnabled() {
+		return Boolean(this.activeTextEditor);
+	}
+
+	private isHostedIntegrationConnected(force = false) {
+		if (this.hostedIntegrationConnected == null || force === true) {
+			this.hostedIntegrationConnected = this.container.integrations
+				.getConnected('hosting')
+				.some(x => isSupportedIntegration(x.id));
+		}
+		return this.hostedIntegrationConnected;
 	}
 
 	private getOnboardingState(): Omit<
@@ -212,13 +216,6 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		};
 	}
 
-	private getOnboardingExtras(): OnboardingConfigurationExtras {
-		return {
-			editorPreviewEnabled: Boolean(this.activeTextEditor),
-			repoHostConnected: this.isHostedIntegrationConnected(),
-		};
-	}
-
 	private async getCanShowPromos(subscription?: Subscription): Promise<Record<string, boolean>> {
 		const promos = {
 			hs2023: false,
@@ -251,8 +248,19 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		void this.host.notify(DidChangeOnboardingState, this.getOnboardingState());
 	}
 
-	private notifyDidChangeOnboardingConfig() {
-		void this.host.notify(DidChangeOnboardingConfiguration, this.getOnboardingExtras());
+	private notifyDidChangeOnboardingIntegration() {
+		// force rechecking
+		const isConnected = this.isHostedIntegrationConnected(true);
+		void this.host.notify(DidChangeOnboardingIntegration, {
+			onboardingState: this.getOnboardingState(),
+			repoHostConnected: isConnected,
+		});
+	}
+
+	private notifyDidChangeEditor() {
+		void this.host.notify(DidChangeOnboardingEditor, {
+			editorPreviewEnabled: this.isEditorPreviewEnabled(),
+		});
 	}
 
 	private async notifyDidChangeSubscription(subscription?: Subscription) {
@@ -269,4 +277,8 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			orgSettings: this.getOrgSettings(),
 		});
 	}
+}
+
+function isSupportedIntegration(key: string) {
+	return [HostingIntegrationId.GitHub, HostingIntegrationId.GitLab].includes(key as HostingIntegrationId);
 }
