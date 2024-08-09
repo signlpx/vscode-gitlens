@@ -12,6 +12,7 @@ import type { TrackedUsageKeys, UsageChangeEvent } from '../../telemetry/usageTr
 import type { WebviewHost, WebviewProvider } from '../webviewProvider';
 import type { DidChangeOnboardingStateParams, DidChangeRepositoriesParams, OnboardingItem, State } from './protocol';
 import {
+	DidChangeCodeLensState,
 	DidChangeIntegrationsConnections,
 	DidChangeOnboardingEditor,
 	DidChangeOnboardingIntegration,
@@ -19,6 +20,7 @@ import {
 	DidChangeOrgSettings,
 	DidChangeRepositories,
 	DidChangeSubscription,
+	DidResume,
 } from './protocol';
 
 const emptyDisposable = Object.freeze({
@@ -29,15 +31,13 @@ const emptyDisposable = Object.freeze({
 
 export class HomeWebviewProvider implements WebviewProvider<State> {
 	private readonly _disposable: Disposable;
-	private activeTextEditor: TextEditor | undefined;
+	private activeTrackedTextEditor: TextEditor | undefined;
 	private hostedIntegrationConnected: boolean | undefined;
 
 	constructor(
 		private readonly container: Container,
 		private readonly host: WebviewHost,
 	) {
-		this.activeTextEditor = window.activeTextEditor;
-
 		this._disposable = Disposable.from(
 			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
 			!workspace.isTrusted
@@ -51,11 +51,14 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			this.container.integrations.onDidChangeConnectionState(e => {
 				if (isSupportedIntegration(e.key)) this.onChangeConnectionState();
 			}, this),
+			this.container.codeLens.onCodeLensToggle(this.onToggleCodeLens, this),
+			// window.on.focus.onDidChange(e => {
+			// 	console.log('home test focus', e);
+			// }, this),
 		);
 	}
 
 	dispose() {
-		this.notifyDidChangeOnboardingState();
 		this._disposable.dispose();
 	}
 
@@ -63,9 +66,23 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		this.notifyDidChangeOnboardingIntegration();
 	}
 
-	private onChangeActiveTextEditor(e: TextEditor | undefined) {
-		this.activeTextEditor = e;
+	onVisibilityChanged(visible: boolean): void {
+		if (visible) this.notifyDidResume();
+	}
+
+	private async onChangeActiveTextEditor(e: TextEditor | undefined) {
+		if (!e) {
+			this.activeTrackedTextEditor = undefined;
+		} else if (await this.container.git.isTracked(e.document.uri)) {
+			this.activeTrackedTextEditor = e;
+		} else {
+			this.activeTrackedTextEditor = undefined;
+		}
 		this.notifyDidChangeEditor();
+	}
+
+	private onToggleCodeLens() {
+		this.notifyDidToggleCodeLens();
 	}
 
 	private onUsagesChanged(e: UsageChangeEvent | undefined) {
@@ -114,6 +131,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			repositories: this.getRepositoriesState(),
 			onboardingState: this.getOnboardingState(),
 			editorPreviewEnabled: this.isEditorPreviewEnabled(),
+			canEnableCodeLens: this.canCodeLensBeEnabled(),
 			repoHostConnected: this.isHostedIntegrationConnected(),
 			webroot: this.host.getWebRoot(),
 			promoStates: await this.getCanShowPromos(subscription),
@@ -154,7 +172,11 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private isEditorPreviewEnabled() {
-		return Boolean(this.activeTextEditor);
+		return Boolean(this.activeTrackedTextEditor);
+	}
+
+	private canCodeLensBeEnabled() {
+		return this.container.codeLens.canToggle && !this.container.codeLens.isEnabled;
 	}
 
 	private isHostedIntegrationConnected(force = false) {
@@ -237,13 +259,6 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		void this.host.notify(DidChangeRepositories, this.getRepositoriesState());
 	}
 
-	private notifyDidChangeOnboardingIntegration() {
-		// force rechecking
-		const isConnected = this.isAnyIntegrationConnected(true);
-		void this.host.notify(DidChangeIntegrationsConnections, {
-			hasAnyIntegrationConnected: isConnected,
-		});
-	}
 	private notifyDidChangeOnboardingState() {
 		void this.host.notify(DidChangeOnboardingState, this.getOnboardingState());
 	}
@@ -258,9 +273,28 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private notifyDidChangeEditor() {
+		console.log('home test changed editor', this.isEditorPreviewEnabled());
 		void this.host.notify(DidChangeOnboardingEditor, {
 			editorPreviewEnabled: this.isEditorPreviewEnabled(),
 		});
+	}
+
+	private notifyDidToggleCodeLens() {
+		void this.host.notify(DidChangeCodeLensState, {
+			canBeEnabled: this.canCodeLensBeEnabled(),
+		});
+	}
+
+	// the webview is not updated when it's invisible, but the provider is alive.
+	// need to refresh all states on open already loaded view
+	// TODO: this part doesn't work
+	private notifyDidResume() {
+		console.log('home test notify');
+		setTimeout(() => {
+			void this.host.notify(DidResume, {
+				canBeEnabled: this.canCodeLensBeEnabled(),
+			});
+		}, 2000);
 	}
 
 	private async notifyDidChangeSubscription(subscription?: Subscription) {
