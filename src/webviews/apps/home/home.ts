@@ -8,6 +8,7 @@ import {
 	DidChangeLineBlameState,
 	DidChangeOnboardingEditor,
 	DidChangeOnboardingIntegration,
+	DidChangeOnboardingIsInitialized,
 	DidChangeOnboardingState,
 	DidChangeOrgSettings,
 	DidChangeRepositories,
@@ -41,6 +42,7 @@ export class HomeApp extends App<State> {
 	}
 
 	attachState() {
+		this.component.isInitialized = this.state.isOnboardingInitialized;
 		this.component.state = this.state.onboardingState;
 		this.component.disabled = this.blockRepoFeatures;
 		this.component.onboardingConfiguration = getOnboardingConfiguration(
@@ -108,6 +110,13 @@ export class HomeApp extends App<State> {
 			case DidChangeOnboardingIntegration.is(msg):
 				this.state.onboardingState = msg.params.onboardingState;
 				this.state.repoHostConnected = msg.params.repoHostConnected;
+				this.state.timestamp = Date.now();
+				this.setState(this.state);
+				this.attachState();
+				break;
+
+			case DidChangeOnboardingIsInitialized.is(msg):
+				this.state.isOnboardingInitialized = msg.params.isInitialized;
 				this.state.timestamp = Date.now();
 				this.setState(this.state);
 				this.attachState();

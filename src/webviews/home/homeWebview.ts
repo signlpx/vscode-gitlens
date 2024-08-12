@@ -18,6 +18,7 @@ import {
 	DidChangeLineBlameState,
 	DidChangeOnboardingEditor,
 	DidChangeOnboardingIntegration,
+	DidChangeOnboardingIsInitialized,
 	DidChangeOnboardingState,
 	DidChangeOrgSettings,
 	DidChangeRepositories,
@@ -34,6 +35,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	private readonly _disposable: Disposable;
 	private activeTrackedTextEditor: TextEditor | undefined;
 	private hostedIntegrationConnected: boolean | undefined;
+	private onboardingInitialized: boolean = false;
 
 	constructor(
 		private readonly container: Container,
@@ -144,6 +146,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			subscription: subscription,
 			orgSettings: this.getOrgSettings(),
 			hasAnyIntegrationConnected: this.isAnyIntegrationConnected(),
+			isOnboardingInitialized: this.onboardingInitialized,
 		};
 	}
 
@@ -209,7 +212,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 				'command:gitlens.showGraphPage:executed',
 				'command:gitlens.showGraph:executed',
 			),
-			visualFileHistoryChecked: this.checkIfSomeUsed('timelineWebview:shown'),
+			visualFileHistoryChecked: this.checkIfSomeUsed('timelineView:shown', 'timelineWebview:shown'),
 			sourceControlChecked:
 				// as we cannot track native vscode usage, let's check if user has opened one of the GL features on the SCM view
 				this.checkIfSomeUsed(
@@ -273,6 +276,14 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		void this.host.notify(DidChangeOnboardingState, this.getOnboardingState());
 	}
 
+	private notifyDidChangeIsOnboardingInitialized() {
+		void this.host.notify(DidChangeOnboardingIsInitialized, {
+			isInitialized: this.onboardingInitialized,
+		});
+	}
+
+	private _timeout: NodeJS.Timeout | undefined;
+
 	private notifyDidChangeOnboardingIntegration() {
 		// force rechecking
 		const isConnected = this.isHostedIntegrationConnected(true);
@@ -280,6 +291,13 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			onboardingState: this.getOnboardingState(),
 			repoHostConnected: isConnected,
 		});
+		if (!this._timeout) {
+			clearTimeout(this._timeout);
+		}
+		this._timeout = setTimeout(() => {
+			this.onboardingInitialized = true;
+			this.notifyDidChangeIsOnboardingInitialized();
+		}, 250);
 	}
 
 	private notifyDidChangeEditor() {
