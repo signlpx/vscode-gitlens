@@ -82,8 +82,6 @@ export const DidChangeCodeLensState = new IpcNotification<DidChangeCodeLensState
 	'onboarding/codelens/didToggle',
 );
 
-export const DidResume = new IpcNotification<DidChangeCodeLensStateParams>(scope, 'onboarding/home/didResume');
-
 export interface DidChangeOnboardingIntegrationParams {
 	onboardingState: OnboardingState;
 	repoHostConnected: boolean;
