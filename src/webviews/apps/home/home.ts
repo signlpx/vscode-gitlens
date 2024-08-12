@@ -5,6 +5,7 @@ import type { OnboardingItem, OnboardingState, State } from '../../home/protocol
 import {
 	DidChangeCodeLensState,
 	DidChangeIntegrationsConnections,
+	DidChangeLineBlameState,
 	DidChangeOnboardingEditor,
 	DidChangeOnboardingIntegration,
 	DidChangeOnboardingState,
@@ -46,6 +47,7 @@ export class HomeApp extends App<State> {
 			this.state.editorPreviewEnabled,
 			this.state.repoHostConnected,
 			this.state.canEnableCodeLens,
+			this.state.canEnableLineBlame,
 		);
 	}
 
@@ -91,6 +93,13 @@ export class HomeApp extends App<State> {
 
 			case DidChangeCodeLensState.is(msg):
 				this.state.canEnableCodeLens = msg.params.canBeEnabled;
+				this.state.timestamp = Date.now();
+				this.setState(this.state);
+				this.attachState();
+				break;
+
+			case DidChangeLineBlameState.is(msg):
+				this.state.canEnableLineBlame = msg.params.canBeEnabled;
 				this.state.timestamp = Date.now();
 				this.setState(this.state);
 				this.attachState();

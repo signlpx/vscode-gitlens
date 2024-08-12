@@ -40,6 +40,7 @@ export interface State extends WebviewState {
 	repoHostConnected: boolean;
 	editorPreviewEnabled: boolean;
 	canEnableCodeLens: boolean;
+	canEnableLineBlame: boolean;
 }
 
 // NOTIFICATIONS
@@ -80,6 +81,15 @@ export interface DidChangeCodeLensStateParams {
 export const DidChangeCodeLensState = new IpcNotification<DidChangeCodeLensStateParams>(
 	scope,
 	'onboarding/codelens/didToggle',
+);
+
+export interface DidChangeLineBlameStateParams {
+	canBeEnabled: boolean;
+}
+
+export const DidChangeLineBlameState = new IpcNotification<DidChangeLineBlameStateParams>(
+	scope,
+	'onboarding/lineblame/didToggle',
 );
 
 export interface DidChangeOnboardingIntegrationParams {

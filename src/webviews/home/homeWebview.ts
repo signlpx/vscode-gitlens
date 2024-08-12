@@ -15,7 +15,7 @@ import type { WebviewHost, WebviewProvider } from '../webviewProvider';
 import type { DidChangeOnboardingStateParams, DidChangeRepositoriesParams, OnboardingItem, State } from './protocol';
 import {
 	DidChangeCodeLensState,
-	DidChangeIntegrationsConnections,
+	DidChangeLineBlameState,
 	DidChangeOnboardingEditor,
 	DidChangeOnboardingIntegration,
 	DidChangeOnboardingState,
@@ -54,6 +54,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 				if (isSupportedIntegration(e.key)) this.onChangeConnectionState();
 			}, this),
 			this.container.codeLens.onCodeLensToggle(this.onToggleCodeLens, this),
+			this.container.lineAnnotations.onToggle(this.onToggleLineAnnotations, this),
 		);
 	}
 
@@ -80,6 +81,10 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		this.notifyDidToggleCodeLens();
 	}
 
+	private onToggleLineAnnotations() {
+		this.notifyDidToggleLineBlame();
+	}
+
 	private onUsagesChanged(e: UsageChangeEvent | undefined) {
 		if (!e || e?.key === 'integration:repoHost') {
 			this.notifyDidChangeOnboardingIntegration();
@@ -103,6 +108,8 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		this.notifyDidChangeRepositories();
 		this.notifyDidChangeEditor();
 		this.notifyDidChangeOnboardingState();
+		this.notifyDidToggleCodeLens();
+		this.notifyDidToggleLineBlame();
 		this.notifyDidChangeOnboardingIntegration();
 	}
 
@@ -130,6 +137,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			onboardingState: this.getOnboardingState(),
 			editorPreviewEnabled: this.isEditorPreviewEnabled(),
 			canEnableCodeLens: this.canCodeLensBeEnabled(),
+			canEnableLineBlame: this.canLineBlameBeEnabled(),
 			repoHostConnected: this.isHostedIntegrationConnected(),
 			webroot: this.host.getWebRoot(),
 			promoStates: await this.getCanShowPromos(subscription),
@@ -175,6 +183,10 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	private canCodeLensBeEnabled() {
 		return this.container.codeLens.canToggle && !this.container.codeLens.isEnabled;
+	}
+
+	private canLineBlameBeEnabled() {
+		return !this.container.lineAnnotations.enabled;
 	}
 
 	private isHostedIntegrationConnected(force = false) {
@@ -280,6 +292,12 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	private notifyDidToggleCodeLens() {
 		void this.host.notify(DidChangeCodeLensState, {
 			canBeEnabled: this.canCodeLensBeEnabled(),
+		});
+	}
+
+	private notifyDidToggleLineBlame() {
+		void this.host.notify(DidChangeLineBlameState, {
+			canBeEnabled: this.canLineBlameBeEnabled(),
 		});
 	}
 
