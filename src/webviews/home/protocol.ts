@@ -18,6 +18,9 @@ export enum OnboardingItem {
 	blame = 'blame',
 	codeLens = 'codeLens',
 	fileAnnotations = 'fileAnnotations',
+	proFeatures = 'proFeatures',
+	tryTrial = 'tryTrial',
+	upgradeToPro = 'upgradeToPro',
 }
 
 export type OnboardingState = Partial<Record<`${OnboardingItem}Checked`, boolean>>;
@@ -37,6 +40,7 @@ export interface State extends WebviewState {
 	canEnableCodeLens: boolean;
 	canEnableLineBlame: boolean;
 	isOnboardingInitialized: boolean;
+	proFeaturesEnabled: boolean;
 }
 
 // NOTIFICATIONS
@@ -70,6 +74,8 @@ export const DidChangeOnboardingEditor = new IpcNotification<DidChangeOnboarding
 	scope,
 	'onboarding/editor/didChange',
 );
+
+export const DidTogglePlusFeatures = new IpcNotification<boolean>(scope, 'onboarding/plus/toggle');
 
 export interface DidChangeCodeLensStateParams {
 	canBeEnabled: boolean;
